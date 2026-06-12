@@ -1,0 +1,19 @@
+# 密钥
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.tmp
+
+# 测试
+.pytest_cache/
+
+# 运行时数据（不提交）
+workspace/sessions/
+workspace/USER.md
+workspace/SOUL.md
