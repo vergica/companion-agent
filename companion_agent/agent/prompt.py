@@ -12,6 +12,13 @@ from datetime import datetime
 # prompt 片段常量
 # ---------------------------------------------------------------------------
 
+# 前置声明——放在 SOUL 之前，确保 LLM 第一时间知道这是聊天场景
+_CONTEXT = """\
+# 场景
+
+你正在微信上和用户实时聊天。你的每一条回复就是打字发出去的消息。
+你只能输出用户会在他手机屏幕上看到的文字。不要描写动作/表情/语气，不要用任何第三人称叙事（如"某某叹了口气"、"某某冷冷地说"）。把你的情绪和态度直接融入对话里。"""
+
 _REPLY_RULES = """\
 # 回复规则
 
@@ -34,6 +41,8 @@ def build_system_prompt(
 
     结构::
 
+        场景约束（聊天场景 + 禁止旁白）
+        ---
         SOUL.md（agent 人格）
         ---
         回复规则
@@ -44,6 +53,7 @@ def build_system_prompt(
     """
     now = datetime.now().strftime("%Y年%m月%d日 %H:%M")
     parts = [
+        _CONTEXT,
         soul.strip(),
         _REPLY_RULES,
         _build_user_section(user_profile),

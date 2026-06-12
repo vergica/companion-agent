@@ -14,8 +14,21 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import sys
 from pathlib import Path
+
+# 启动时加载 .env（如果 python-dotenv 可用）
+try:
+    from dotenv import load_dotenv
+    _env_file = Path(__file__).parent.parent / ".env"
+    if _env_file.exists():
+        load_dotenv(_env_file)
+except ImportError:
+    pass
+
+# weixin-bot 状态目录：不设的话会写到库源码目录下，这里统一收到 workspace 里
+os.environ.setdefault("WEIXIN_BOT_STATE_DIR", str(Path("workspace/.weixin-bot").resolve()))
 
 from companion_agent.agent.engine import Engine
 from companion_agent.bot import Bot
@@ -23,6 +36,7 @@ from companion_agent.config import load_config
 from companion_agent.llm import LlmClient
 from companion_agent.memory import Session, UserProfile
 from companion_agent.proactive import Proactive
+from weixin_bot.auth.accounts import list_ids, load as load_account
 from weixin_bot.auth.login import login
 from weixin_bot.messaging.send import send_text
 
@@ -72,14 +86,29 @@ async def main() -> None:
         max_history_rounds=cfg.companion.max_history_rounds,
     )
 
-    # ---- 微信登录 ----
-    print("正在登录微信...")
-    login_result = await login()
+    # ---- 微信登录（有存档则复用，避免重复登录导致长轮询收不到消息）----
+    saved_ids = list_ids()
+    if saved_ids:
+        account_id = saved_ids[0]
+        saved = load_account(account_id) or {}
+        token = saved.get("token", "")
+        base_url = saved.get("baseUrl", "")
+        if token and base_url:
+            print(f"复用已保存的登录 account_id={account_id}")
+        else:
+            print("存档不完整，重新登录...")
+            saved_ids = []
+    else:
+        token = ""
+        base_url = ""
 
-    base_url = login_result["base_url"]
-    token = login_result["bot_token"]
-    account_id = login_result["account_id"]
-    print(f"登录成功 account_id={account_id}")
+    if not saved_ids:
+        print("正在登录微信...")
+        login_result = await login()
+        base_url = login_result["base_url"]
+        token = login_result["bot_token"]
+        account_id = login_result["account_id"]
+        print(f"登录成功 account_id={account_id}")
 
     # ---- 微信适配层 ----
     bot = Bot(
